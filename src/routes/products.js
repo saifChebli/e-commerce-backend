@@ -4,11 +4,18 @@ const Product = require('../models/Product');
 const auth = require('../middleware/auth');
 
 // GET /api/products
-// query: search, category, priceMin, priceMax, sort (newest|price_asc|price_desc), page, limit
+// query: search, category, priceMin, priceMax, sort (newest|price_asc|price_desc), page, limit, includeInactive
 router.get('/', async (req, res) => {
   try {
-    const { search, category, priceMin, priceMax, sort, page, limit } = req.query;
+    const { search, category, priceMin, priceMax, sort, page, limit, includeInactive } = req.query;
     const filter = {};
+    
+    // Only show active products by default (for client-side)
+    // Admin can pass includeInactive=true to see all products
+    if (includeInactive !== 'true') {
+      filter.status = true;
+    }
+    
     if (search) filter.name = { $regex: search, $options: 'i' };
     if (category) filter.category = category;
     if (priceMin || priceMax) filter.price = {

@@ -8,6 +8,8 @@ const UserSchema = new mongoose.Schema({
   avatar: { type: String },
   phone: { type: String },
   bio: { type: String },
+  city: { type: String },
+  address: { type: String },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

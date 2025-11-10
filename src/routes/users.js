@@ -26,7 +26,7 @@ router.get('/me', auth, async (req, res) => {
 // update profile
 router.put('/me', auth, async (req, res) => {
   try {
-    const allowed = ['name', 'email', 'phone', 'bio'];
+    const allowed = ['name', 'email', 'phone', 'bio', 'city', 'address'];
     const updates = {};
     for (const k of allowed) if (k in req.body) updates[k] = req.body[k];
     const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true }).select('-password');

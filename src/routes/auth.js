@@ -6,17 +6,17 @@ const User = require('../models/User');
 
 // register
 router.post('/register', async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, phone, city, address } = req.body;
   if (!name || !email || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ error: 'User already exists' });
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(password, salt);
-    user = new User({ name, email, password: hashed });
+    user = new User({ name, email, password: hashed, phone, city, address });
     await user.save();
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone, city: user.city, address: user.address } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -32,7 +32,7 @@ router.post('/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone, city: user.city, address: user.address } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
