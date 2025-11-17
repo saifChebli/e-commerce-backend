@@ -23,6 +23,10 @@ const ProductSchema = new mongoose.Schema({
     length: Number,
     width: Number,
     height: Number,
+  },
+  shippingTier: {
+    type: String,
+    enum: ['T2', 'T4', 'T6', 'T8PLUS'],
   }
 }, { timestamps: true });
 

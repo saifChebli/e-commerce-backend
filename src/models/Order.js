@@ -12,7 +12,12 @@ const OrderSchema = new mongoose.Schema({
     }
   ],
   amount: { type: Number, required: true },
+  subtotal: { type: Number },
+  taxPercent: { type: Number },
+  taxAmount: { type: Number },
+  shippingCost: { type: Number },
   shipping: { type: mongoose.Schema.Types.Mixed },
+  shippingMethod: { type: String },
   paymentMethod: { type: String },
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed', 'refunded'], default: 'pending' },
   paymentIntentId: { type: String },

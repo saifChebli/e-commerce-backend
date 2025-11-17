@@ -3,36 +3,40 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
 
-// In-memory fallback; for production, store in a collection
-let settings = {
-  storeName: 'Boutique 2V Technologies',
-  storeEmail: 'admin@boutique2v.com',
-  storePhone: '+1 (555) 123-4567',
-  storeAddress: '123 Business Street, City, State 12345',
-  currency: 'USD',
-  timezone: 'America/New_York',
-  language: 'en',
-  maintenanceMode: false,
-  allowRegistration: true,
-  requireEmailVerification: true,
-  lowStockThreshold: 10,
-  orderNotificationEmail: 'orders@boutique2v.com',
-  supportEmail: 'support@boutique2v.com',
-  facebookUrl: 'https://facebook.com/boutique2v',
-  twitterUrl: 'https://twitter.com/boutique2v',
-  instagramUrl: 'https://instagram.com/boutique2v',
-  youtubeUrl: 'https://youtube.com/boutique2v'
-};
+const Setting = require('../models/Setting');
+// In-memory cache (kept in sync with DB)
+let settings = null;
+
+async function loadSettings() {
+  let doc = await Setting.findOne();
+  if (!doc) {
+    doc = await Setting.create({});
+  }
+  settings = doc.toObject();
+  return settings;
+}
 
 // GET settings
 router.get('/', auth, admin, async (req, res) => {
-  res.json(settings);
+  try {
+    if (!settings) await loadSettings();
+    res.json(settings);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // PUT settings
 router.put('/', auth, admin, async (req, res) => {
   try {
-    settings = { ...settings, ...req.body };
+    const current = await Setting.findOne();
+    let updated;
+    if (current) {
+      updated = await Setting.findByIdAndUpdate(current._id, req.body, { new: true });
+    } else {
+      updated = await Setting.create(req.body);
+    }
+    settings = updated.toObject();
     res.json(settings);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -40,3 +44,7 @@ router.put('/', auth, admin, async (req, res) => {
 });
 
 module.exports = router;
+
+// Expose current settings for internal consumers (e.g., orders/invoice)
+module.exports.__getSettings = () => settings;
+module.exports.__loadSettings = loadSettings;

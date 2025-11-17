@@ -29,10 +29,22 @@ function fileFilter(req, file, cb) {
   cb(null, true);
 }
 
-const upload = multer({ storage, fileFilter, limits: { fileSize: 2 * 1024 * 1024 } });
+const upload = multer({ storage, fileFilter });
+
+// Helper to invoke multer safely
+function handleMulter(mw) {
+  return function (req, res, next) {
+    mw(req, res, function (err) {
+      if (err) {
+        return res.status(400).json({ error: err.message || 'Upload failed' });
+      }
+      next();
+    });
+  };
+}
 
 // POST /api/uploads/single  (admin)
-router.post('/single', auth, admin, upload.single('file'), (req, res) => {
+router.post('/single', auth, admin, handleMulter(upload.single('file')), (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'No file uploaded' });
   const url = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
@@ -40,8 +52,9 @@ router.post('/single', auth, admin, upload.single('file'), (req, res) => {
 });
 
 // POST /api/uploads/multiple (admin) - up to 8 images
-router.post('/multiple', auth, admin, upload.array('files', 8), (req, res) => {
+router.post('/multiple', auth, admin, handleMulter(upload.array('files', 8)), (req, res) => {
   const files = req.files || [];
+  if (!files.length) return res.status(400).json({ error: 'No files uploaded' });
   const mapped = files.map(f => ({ filename: f.filename, url: `${req.protocol}://${req.get('host')}/uploads/${f.filename}` }));
   res.status(201).json({ files: mapped });
 });

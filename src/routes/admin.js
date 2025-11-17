@@ -23,6 +23,43 @@ router.patch('/orders/:id/status', auth, admin, async (req, res) => {
   }
 });
 
+// Admin cancel order (restock items if needed)
+router.patch('/orders/:id/cancel', auth, admin, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.status === 'cancelled') return res.status(400).json({ error: 'Order already cancelled' });
+
+    // Restock products for items
+    const items = order.items || [];
+    for (const it of items) {
+      if (it.product && it.quantity) {
+        await Product.findByIdAndUpdate(it.product, { $inc: { stock: Number(it.quantity) } });
+      }
+    }
+
+    order.status = 'cancelled';
+    await order.save();
+    res.json(order);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Regenerate order invoice PDF with current settings
+router.post('/orders/:id/regenerate-invoice', auth, admin, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('user', 'name email');
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    const inv = await generateInvoice(order.toObject());
+    order.invoiceUrl = inv.urlPath;
+    await order.save();
+    res.json({ invoiceUrl: order.invoiceUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Toggle product featured or status
 // PATCH /api/admin/products/:id/meta { featured?, status? }
 router.patch('/products/:id/meta', auth, admin, async (req, res) => {

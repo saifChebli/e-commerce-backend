@@ -7,6 +7,14 @@ function currency(n) {
 }
 
 async function generateInvoice(order) {
+  // Load settings for business info and tax
+  let settings = {};
+  try {
+    const settingsRoute = require('../routes/settings');
+    if (settingsRoute && settingsRoute.__getSettings) {
+      settings = settingsRoute.__getSettings();
+    }
+  } catch (_) {}
   const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
   const invoicesDir = path.join(uploadsDir, 'invoices');
   if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -32,10 +40,12 @@ async function generateInvoice(order) {
     // Seller info
     doc
       .fontSize(12)
-      .text('EXCLUSIVE Store', 50, 80)
+      .text(settings.storeName || 'Store', 50, 80)
       .fontSize(10)
-      .text('support@exclusive.example')
-      .text('www.exclusive.example')
+      .text(settings.storeEmail || '')
+      .text(settings.storeAddress || '')
+      .text(settings.storePhone || '')
+      .text(`Tax No: ${settings.taxNumber || '-'}`)
       .moveDown(1);
 
     // Customer info
@@ -76,8 +86,16 @@ async function generateInvoice(order) {
     });
 
     doc.moveTo(50, y + 5).lineTo(550, y + 5).stroke();
-    y += 15;
-    doc.fontSize(12).text('Total:', priceX, y).text(currency(order.amount || 0), totalX, y);
+    y += 12;
+    const subtotal = Number(order.subtotal || 0);
+    const shippingCost = Number(order.shippingCost || 0);
+    const taxAmount = Number(order.taxAmount || 0);
+    const total = Number(order.amount || subtotal + shippingCost + taxAmount);
+    doc.fontSize(10)
+      .text('Subtotal:', priceX, y).text(currency(subtotal), totalX, y); y += 16;
+    doc.text('Shipping:', priceX, y).text(currency(shippingCost), totalX, y); y += 16;
+    doc.text(`Tax (${order.taxPercent || 0}%):`, priceX, y).text(currency(taxAmount), totalX, y); y += 16;
+    doc.fontSize(12).text('Total:', priceX, y).text(currency(total), totalX, y);
 
     doc.end();
     stream.on('finish', resolve);
