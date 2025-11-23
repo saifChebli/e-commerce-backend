@@ -49,6 +49,10 @@ async function computeTotals(items, shippingMethod, paymentMethod) {
       };
       tierCost = items.reduce((max, it) => Math.max(max, estimateFromItem(it)), 0);
     }
+    // If still no tier determined, use default minimum shipping
+    if (!tierCost) {
+      tierCost = 15; // Default to T2 minimum shipping
+    }
     shippingCost = tierCost;
   }
 
@@ -62,6 +66,23 @@ router.post('/', auth, async (req, res) => {
   try {
     const { items = [], shipping, shippingMethod, paymentMethod, paymentIntentId, paymentStatus } = req.body || {};
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'No items in order' });
+    
+    // Validate stock availability for all items
+    for (const item of items) {
+      const product = await Product.findById(item.product);
+      if (!product) {
+        return res.status(400).json({ error: `Product ${item.product} not found` });
+      }
+      if (product.stock < item.quantity) {
+        return res.status(400).json({ 
+          error: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}` 
+        });
+      }
+      if (product.stock === 0) {
+        return res.status(400).json({ error: `${product.name} is out of stock` });
+      }
+    }
+    
     const { subtotal, shippingCost, taxPercent, taxAmount, amount, shippingMethod: resolvedShippingMethod } = await computeTotals(items, shippingMethod, paymentMethod);
 
     const order = new Order({

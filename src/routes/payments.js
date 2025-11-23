@@ -14,7 +14,6 @@ try {
   console.warn('Stripe not initialized:', e.message);
 }
 
-// Create Payment Intent
 router.post('/create-intent', auth, async (req, res) => {
   try {
     if (!stripe) return res.status(500).json({ error: 'Stripe not configured on server' });
@@ -33,7 +32,6 @@ router.post('/create-intent', auth, async (req, res) => {
 
 module.exports = router;
 
-// Stripe webhook handler (mount with express.raw in index.js)
 async function webhookHandler(req, res) {
   try {
     const sig = req.headers['stripe-signature'];
@@ -81,6 +79,5 @@ async function webhookHandler(req, res) {
   }
 }
 
-// Attach as property so index.js can import it directly
 router.webhook = webhookHandler;
 module.exports.webhook = webhookHandler;

@@ -22,14 +22,22 @@ const storage = multer.diskStorage({
 });
 
 function fileFilter(req, file, cb) {
-  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/gif'];
   if (!allowed.includes(file.mimetype)) {
-    return cb(new Error('Only JPG/PNG/WEBP images are allowed'));
+    return cb(new Error('Only image files are allowed (JPG, PNG, WEBP, GIF)'));
   }
   cb(null, true);
 }
 
-const upload = multer({ storage, fileFilter });
+// No size limit - allow any file size
+const upload = multer({ 
+  storage, 
+  fileFilter,
+  limits: {
+    fileSize: Infinity, // No size limit
+    files: 8 // Max 8 files
+  }
+});
 
 // Helper to invoke multer safely
 function handleMulter(mw) {

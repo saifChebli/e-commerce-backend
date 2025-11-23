@@ -1,0 +1,13 @@
+{
+  "customerName": "Test Customer",
+  "customerEmail": "test@example.com",
+  "customerPhone": "1234567890",
+  "customerAddress": "123 Test St",
+  "items": [
+    {"description": "Test Item 1", "quantity": 2, "price": 50},
+    {"description": "Test Item 2", "quantity": 1, "price": 100}
+  ],
+  "notes": "Test invoice for tax calculation",
+  "status": "draft",
+  "dueDate": "2025-12-31T00:00:00.000Z"
+}

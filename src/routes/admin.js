@@ -15,8 +15,34 @@ router.patch('/orders/:id/status', auth, admin, async (req, res) => {
     const { status } = req.body;
     const allowed = ['pending', 'processing', 'shipped', 'completed', 'cancelled'];
     if (!allowed.includes(status)) return res.status(400).json({ error: 'Invalid status' });
-    const order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    
+    const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ error: 'Order not found' });
+    
+    const oldStatus = order.status;
+    
+    // If changing to 'completed', reduce stock
+    if (status === 'completed' && oldStatus !== 'completed') {
+      const items = order.items || [];
+      for (const it of items) {
+        if (it.product && it.quantity) {
+          await Product.findByIdAndUpdate(it.product, { $inc: { stock: -Number(it.quantity) } });
+        }
+      }
+    }
+    
+    // If changing from 'completed' back to another status, restore stock
+    if (oldStatus === 'completed' && status !== 'completed') {
+      const items = order.items || [];
+      for (const it of items) {
+        if (it.product && it.quantity) {
+          await Product.findByIdAndUpdate(it.product, { $inc: { stock: Number(it.quantity) } });
+        }
+      }
+    }
+    
+    order.status = status;
+    await order.save();
     res.json(order);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -83,11 +109,13 @@ router.get('/stats', auth, admin, async (req, res) => {
     const Category = require('../models/Category');
     const ManualInvoice = require('../models/ManualInvoice');
     
+    // Exclude cancelled orders from metrics
     const [users, products, orders, revenueAgg, categories, manualInvoices] = await Promise.all([
       User.countDocuments(),
       Product.countDocuments(),
-      Order.countDocuments(),
+      Order.countDocuments({ status: { $ne: 'cancelled' } }),
       Order.aggregate([
+        { $match: { status: { $ne: 'cancelled' } } },
         { $group: { _id: null, revenue: { $sum: "$amount" } } }
       ]),
       Category.countDocuments(),
@@ -96,16 +124,20 @@ router.get('/stats', auth, admin, async (req, res) => {
     
     const revenue = revenueAgg[0]?.revenue || 0;
     
+    // Calculate Average Order Value (excluding cancelled)
+    const avgOrderValue = orders > 0 ? revenue / orders : 0;
+    
     // Get orders by status
     const ordersByStatus = await Order.aggregate([
       { $group: { _id: "$status", count: { $count: {} } } }
     ]);
     
-    // Get revenue by month for current year
+    // Get revenue by month for current year (excluding cancelled)
     const currentYear = new Date().getFullYear();
     const monthlyRevenue = await Order.aggregate([
       { 
         $match: { 
+          status: { $ne: 'cancelled' },
           createdAt: { 
             $gte: new Date(`${currentYear}-01-01`),
             $lte: new Date(`${currentYear}-12-31`)
@@ -148,10 +180,10 @@ router.get('/stats', auth, admin, async (req, res) => {
       $expr: { $lte: ['$stock', 10] }
     });
     
-    // Get recent orders (last 7 days)
+    // Get recent orders (last 7 days, excluding cancelled)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const recentOrders = await Order.aggregate([
-      { $match: { createdAt: { $gte: sevenDaysAgo } } },
+      { $match: { status: { $ne: 'cancelled' }, createdAt: { $gte: sevenDaysAgo } } },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
@@ -167,6 +199,7 @@ router.get('/stats', auth, admin, async (req, res) => {
       products, 
       orders, 
       revenue,
+      avgOrderValue,
       categories,
       manualInvoices,
       lowStockProducts,
@@ -198,8 +231,22 @@ router.post('/manual-invoices', auth, admin, async (req, res) => {
   try {
     const { customerName, customerEmail, customerPhone, customerAddress, items, notes, status, dueDate } = req.body;
     
-    // Calculate total
-    const total = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+    // Calculate subtotal
+    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+    
+    // Get tax settings
+    let taxPercent = 0;
+    try {
+      const settingsRoute = require('./settings');
+      if (settingsRoute && settingsRoute.__getSettings) {
+        const settings = settingsRoute.__getSettings();
+        taxPercent = Number(settings.globalTaxPercent) || 0;
+      }
+    } catch (_) {}
+    
+    // Calculate tax and total
+    const taxAmount = (taxPercent / 100) * subtotal;
+    const total = subtotal + taxAmount;
     
     // Generate invoice number
     const count = await ManualInvoice.countDocuments();
@@ -212,6 +259,9 @@ router.post('/manual-invoices', auth, admin, async (req, res) => {
       customerPhone,
       customerAddress,
       items,
+      subtotal,
+      taxPercent,
+      taxAmount,
       total,
       notes,
       status: status || 'draft',
@@ -226,6 +276,10 @@ router.post('/manual-invoices', auth, admin, async (req, res) => {
       const { filePath, urlPath } = await generateInvoice({
         _id: invoice._id,
         amount: total,
+        subtotal,
+        taxPercent,
+        taxAmount,
+        shippingCost: 0,
         items,
         user: { name: customerName, email: customerEmail },
         shipping: { address: customerAddress, phone: customerPhone },

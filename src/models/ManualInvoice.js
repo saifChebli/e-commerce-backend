@@ -36,6 +36,18 @@ const ManualInvoiceSchema = new mongoose.Schema({
       min: 0
     }
   }],
+  subtotal: {
+    type: Number,
+    default: 0
+  },
+  taxPercent: {
+    type: Number,
+    default: 0
+  },
+  taxAmount: {
+    type: Number,
+    default: 0
+  },
   total: {
     type: Number,
     required: true
