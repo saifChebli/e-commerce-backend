@@ -18,9 +18,35 @@ router.get('/', auth, async (req, res) => {
 router.post('/add', auth, async (req, res) => {
   const { productId, title, price, image, quantity = 1 } = req.body;
   try {
+    // Check product stock before adding
+    const Product = require('../models/Product');
+    const product = await Product.findById(productId);
+    
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    
+    if (!product.status) {
+      return res.status(400).json({ error: 'Product is not available' });
+    }
+    
+    if (product.stock <= 0) {
+      return res.status(400).json({ error: 'Product is out of stock' });
+    }
+    
     let cart = await Cart.findOne({ user: req.user._id });
     if (!cart) cart = new Cart({ user: req.user._id, items: [] });
+    
     const existing = cart.items.find(i => i.product?.toString() === productId);
+    const newQuantity = existing ? existing.quantity + quantity : quantity;
+    
+    // Check if requested quantity exceeds available stock
+    if (newQuantity > product.stock) {
+      return res.status(400).json({ 
+        error: `Only ${product.stock} items available in stock` 
+      });
+    }
+    
     if (existing) {
       existing.quantity += quantity;
     } else {
@@ -51,6 +77,20 @@ router.post('/remove', auth, async (req, res) => {
 router.post('/update', auth, async (req, res) => {
   const { productId, quantity } = req.body;
   try {
+    // Check product stock before updating
+    const Product = require('../models/Product');
+    const product = await Product.findById(productId);
+    
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    
+    if (quantity > 0 && quantity > product.stock) {
+      return res.status(400).json({ 
+        error: `Only ${product.stock} items available in stock` 
+      });
+    }
+    
     let cart = await Cart.findOne({ user: req.user._id });
     if (!cart) cart = new Cart({ user: req.user._id, items: [] });
     const item = cart.items.find(i => i.product?.toString() === productId);

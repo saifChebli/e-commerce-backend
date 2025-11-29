@@ -109,13 +109,14 @@ router.get('/stats', auth, admin, async (req, res) => {
     const Category = require('../models/Category');
     const ManualInvoice = require('../models/ManualInvoice');
     
-    // Exclude cancelled orders from metrics
+    // Exclude cancelled and refunded orders from metrics
+    const excludedStatuses = ['cancelled', 'refunded'];
     const [users, products, orders, revenueAgg, categories, manualInvoices] = await Promise.all([
       User.countDocuments(),
       Product.countDocuments(),
-      Order.countDocuments({ status: { $ne: 'cancelled' } }),
+      Order.countDocuments({ status: { $nin: excludedStatuses } }),
       Order.aggregate([
-        { $match: { status: { $ne: 'cancelled' } } },
+        { $match: { status: { $nin: excludedStatuses } } },
         { $group: { _id: null, revenue: { $sum: "$amount" } } }
       ]),
       Category.countDocuments(),
@@ -132,12 +133,12 @@ router.get('/stats', auth, admin, async (req, res) => {
       { $group: { _id: "$status", count: { $count: {} } } }
     ]);
     
-    // Get revenue by month for current year (excluding cancelled)
+    // Get revenue by month for current year (excluding cancelled and refunded)
     const currentYear = new Date().getFullYear();
     const monthlyRevenue = await Order.aggregate([
       { 
         $match: { 
-          status: { $ne: 'cancelled' },
+          status: { $nin: excludedStatuses },
           createdAt: { 
             $gte: new Date(`${currentYear}-01-01`),
             $lte: new Date(`${currentYear}-12-31`)
@@ -180,10 +181,10 @@ router.get('/stats', auth, admin, async (req, res) => {
       $expr: { $lte: ['$stock', 10] }
     });
     
-    // Get recent orders (last 7 days, excluding cancelled)
+    // Get recent orders (last 7 days, excluding cancelled and refunded)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const recentOrders = await Order.aggregate([
-      { $match: { status: { $ne: 'cancelled' }, createdAt: { $gte: sevenDaysAgo } } },
+      { $match: { status: { $nin: excludedStatuses }, createdAt: { $gte: sevenDaysAgo } } },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },

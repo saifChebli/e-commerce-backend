@@ -7,10 +7,16 @@ const connectDB = require('./config/db');
 const app = express();
 
 // middleware
-app.use(cors());
+app.use(cors({
+  origin: true, // Allow all origins in development
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 // Stripe webhook must be mounted before express.json to get the raw body for signature verification
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), require('./routes/payments').webhook);
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(morgan('dev'));
 app.use('/uploads', express.static(require('path').join(__dirname, '..', 'uploads')));
 

@@ -20,6 +20,31 @@ const SettingSchema = new mongoose.Schema({
   twitterUrl: { type: String, default: 'https://twitter.com/boutique2v' },
   instagramUrl: { type: String, default: 'https://instagram.com/boutique2v' },
   youtubeUrl: { type: String, default: 'https://youtube.com/boutique2v' },
+  
+  // Homepage Configuration
+  featuredProductNames: [{ type: String }],
+  newArrivalProductNames: [{ type: String }],
+  heroSlides: [{
+    type: { type: String, enum: ['product', 'custom'], default: 'custom' },
+    productName: { type: String },
+    customImage: { type: String },
+    title: { type: String },
+    subtitle: { type: String },
+    buttonText: { type: String, default: 'Shop Now' },
+    buttonLink: { type: String },
+    searchKeyword: { type: String },
+  }],
+  announcementText: { type: String, default: 'Summer Sale For All Swim Suits And Free Express Delivery - OFF 50%!' },
+  
+  // Footer Content
+  footerFreeShippingText: { type: String, default: 'Free and fast shipping over 140$' },
+  footerFreeShippingSubtext: { type: String, default: 'Enjoy free shipping on orders over $140' },
+  footerCustomerServiceText: { type: String, default: '24/7 customer service' },
+  footerCustomerServiceSubtext: { type: String, default: 'We are here to help you anytime' },
+  footerMoneyBackText: { type: String, default: 'Money back guarantee' },
+  footerMoneyBackSubtext: { type: String, default: 'We return money within 30 days' },
+  footerAboutText: { type: String, default: 'Subscribe to our newsletter for exclusive offers and updates.' },
+  footerCopyright: { type: String, default: '© 2024 Boutique 2V Technologies. All rights reserved.' },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Setting', SettingSchema);
