@@ -67,6 +67,12 @@ router.post('/', auth, async (req, res) => {
     const { items = [], shipping, shippingMethod, paymentMethod, paymentIntentId, paymentStatus } = req.body || {};
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'No items in order' });
     
+    // Validate payment method matches shipping method
+    const finalShippingMethod = shippingMethod || (paymentMethod === 'local_pickup' ? 'local_pickup' : 'standard');
+    if (paymentMethod === 'local_pickup' && finalShippingMethod !== 'local_pickup') {
+      return res.status(400).json({ error: 'Pay at pickup is only available for local pickup orders' });
+    }
+    
     // Validate stock availability for all items
     for (const item of items) {
       const product = await Product.findById(item.product);
