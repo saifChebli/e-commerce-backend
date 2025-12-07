@@ -74,7 +74,8 @@ async function generateInvoice(order) {
 
     let y = tableTop + 20;
     (order.items || []).forEach((it) => {
-      const title = it.title || it.product?.name || String(it.product || 'Item');
+      // Support both order items (title) and manual invoice items (description)
+      const title = it.description || it.title || it.product?.name || String(it.product || 'Item');
       const qty = it.quantity || 1;
       const price = it.price || 0;
       const lineTotal = qty * price;

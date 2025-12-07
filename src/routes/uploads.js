@@ -79,13 +79,24 @@ router.post('/single', auth, admin, handleMulter(upload.single('file')), (req, r
 router.post('/multiple', auth, admin, handleMulter(upload.array('files', 8)), (req, res) => {
   try {
     const files = req.files || [];
-    if (!files.length) return res.status(400).json({ error: 'No files uploaded' });
-    const mapped = files.map(f => ({ filename: f.filename, url: `${req.protocol}://${req.get('host')}/uploads/${f.filename}` }));
-    console.log(`${files.length} file(s) uploaded successfully`);
+    console.log(`Received ${files.length} file(s) for upload`);
+    
+    if (!files.length) {
+      console.error('No files received in request');
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+    
+    const mapped = files.map(f => {
+      const url = `${req.protocol}://${req.get('host')}/uploads/${f.filename}`;
+      console.log(`Uploaded: ${f.originalname} -> ${f.filename}`);
+      return { filename: f.filename, url };
+    });
+    
+    console.log(`Successfully uploaded ${files.length} file(s)`);
     res.status(201).json({ files: mapped });
   } catch (error) {
-    console.error('Multiple upload error:', error);
-    res.status(500).json({ error: 'Failed to process uploads' });
+    console.error('Multiple upload error:', error.message, error.stack);
+    res.status(500).json({ error: error.message || 'Failed to process uploads' });
   }
 });
 
